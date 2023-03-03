@@ -1,0 +1,10 @@
+hardware:
+  # Number of sections where sensors will be placed
+  sections: 4
+
+  # Length of wire (in feet)
+  wire_length: 100
+
+software:
+  # How often data is polled from sensors (in seconds)
+  poll_rate: 60

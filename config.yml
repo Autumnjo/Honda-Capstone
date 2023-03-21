@@ -1,6 +1,6 @@
 hardware:
   # Number of sections where sensors will be placed
-  sections: 4
+  sections: 1
 
   # Length of wire (in feet)
   wire_length: 100

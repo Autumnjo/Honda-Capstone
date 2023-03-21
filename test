@@ -1,0 +1,18 @@
+import pyudev
+
+##### USB reading #####
+# Context object via pyudev for USB reading
+context = pyudev.Context()
+
+# Monitor object for monitoring USB device
+monitor = pyudev.Monitor.from_netlink(context)
+monitor.filter_by(subsystem='usb')
+
+# Begin USB monitoring
+monitor.start()
+
+for device in iter(monitor.poll, None):
+    if device.action == 'add':
+        print("inserted", device)
+    elif device.action == 'remove':
+        print("removed", device)

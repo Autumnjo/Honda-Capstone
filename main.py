@@ -5,10 +5,10 @@ import RPi.GPIO as GPIO
 import time
 import pathlib
 import yaml
-import gpiozero
+import pyudev
 
-pressureSensorValue = 0
-thermoSensorValue = 0
+pressureData = []
+thermoData = []
 
 # Read from config.yaml
 with open('config.yml', 'r') as file:
@@ -21,11 +21,11 @@ spi = spidev.SpiDev()
 # bus is 0, cs 1
 spi.open(0,1)
 
-# 32 MHz MAX
-max_speed_hz = 4800
+# 32 Mhz MAX
+spi.max_speed_hz = 250000 # set speed to 250 Khz
 
-# Sets Pin Numbering Declaration (Uses board numbering scheme)
-GPIO.setmode(GPIO.BOARD)
+# Sets Pin Numbering Declaration (Uses BCM numbering scheme)
+GPIO.setmode(GPIO.BCM)
 
 # GPIO 11 -> Pin 23 for clock
 GPIO.setup(23, GPIO.OUT)
@@ -55,24 +55,36 @@ GPIO.output(16, 0)
 GPIO.output(18, 0)
 GPIO.output(22, 0)
 
-# reading 8 bits (1 byte) from pressure sensor
-presureSensorValue = spi.readbytes(1)
-# binary to decimal 150 psi = 1 megapascal 
-# in binary, a percentage of the max value, which is 150 psi
-
-
 # Thermocouple Sensor 
 # Multiplexer to read from thermocouple
 GPIO.output(26, 0)
-
 GPIO.output(35, 1)
 
-thermoSensorValue = spi.readbytes(1)
-# binary value of temp in degrees
+pressurePin = 21
+thermoPin = 35
+try:
+    while True:     # endless loop, press ctrl+c to exit
+        # Read from sensors
+        for x in config['hardware']['sections']:
+            # reading 8 bits (1 byte) from pressure sensor
+            pressureRead = spi.xfer2([0x80 | pressurePin, 0x00])
+            pData = ((pressureRead[0] & 0x07) << 8) | pressureRead[1]
+            pressureData.append(pData)
 
-time.sleep(config['software']['poll_rate'])
-# Read from sensors
-for x in config['hardware']['sections']:
-    spidev.bits_per_word()
+            df = pd.DataFrame(pressureData, columns=['Pressure_Data'])
+            df.to_csv('Pressure_Data.csv', index=False)
 
-# Create .csv file
+            # binary to decimal 150 psi = 1 megapascal 
+            # in binary, a percentage of the max value, which is 150 psi
+            thermoRead = spi.xfer2([0x80 | thermoPin, 0x00])
+            tData = ((thermoRead[0] & 0x07) << 8) | thermoRead[1]
+            thermoData.append(tData)
+
+            df = pd.DataFrame(thermoData, columns=['Thermo_Data'])
+            df.to_csv('Thermo_Data.csv', index=False)
+            
+           # binary value of temp in degrees
+
+            time.sleep(config['software']['poll_rate'])
+finally:
+    spi.close()     # close port before exit

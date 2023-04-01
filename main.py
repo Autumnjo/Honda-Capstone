@@ -19,8 +19,8 @@ class Pin(Enum):
     A3 = 26
 
 def thermosetup(spi_therm):
-    reg_0 = [0x00, 0x80] # register code - 0x00, config code - 0b10000000
-    reg_1 = [0x01, 0x22] # register code - 0x01, config code - 0b00100010
+    reg_0 = [0x00, 0b10000000] # register code - 0x00, config code - 0b10000000
+    reg_1 = [0x01, 0b00000010] # register code - 0x01, config code - 0b00100010
     
     spi_therm.writebytes(reg_0)
     spi_therm.writebytes(reg_1)
@@ -38,8 +38,8 @@ def pressureconversion(raw):
 def thermoconstruct(raw):
     intpart = (raw[0] << 4) + (raw[1] >> 4) & 15   
     fracpart = (((raw[1] << 4) & 240) + (raw[2] >> 4) & 30)
-    fracpart = (float)(fracpart)/(2^7)
-    full = (float)(intpart) + fracpart
+    fracpart = (float)(fracpart)/(float)(2^7)
+    full = (float)(intpart) + (float)(fracpart)
     return full
 
 def findUSBs():

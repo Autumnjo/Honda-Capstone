@@ -7,6 +7,35 @@ import pathlib
 import yaml
 import pyudev
 
+from enum import Enum
+
+# Function Definitions
+
+class Pin(Enum):
+    A0 = 23
+    A1 = 24
+    A2 = 25
+    A3 = 26
+
+def thermosetup(spi_therm):
+    reg_0 = [0x00, 0x80] # register code - 0x00, config code - 0b10000000
+    reg_1 = [0x01, 0x22] # register code - 0x01, config code - 0b00100010
+    
+    spi_therm.writebytes(reg_0)
+    spi_therm.writebytes(reg_1)
+
+    return
+
+def pressureconversion(raw):
+    raw = (raw[0] * 16 * 16)+ raw[1]
+    if raw == 0:
+        return 0
+    
+    max_hex = 0x3FFF
+    return 2 * (100 * float(raw)/float(max_hex))
+
+def thermoconstruct(raw)
+
 ##### config.yaml file #####
 # Read from config.yaml
 with open('config.yml', 'r') as file:
@@ -24,57 +53,45 @@ monitor.filter_by(subsystem='usb')
 monitor.start()
 
 ##### Initialize board/pins #####
-# SpiDev init
-spi = spidev.SpiDev()
+# SpiDev Init
+spi_air = spidev.SpiDev()
+spi_therm = spidev.SpiDev()
 
 # (bus,device) used to connect to SPI device
-# bus is 0, cs 1
-spi.open(0,1)
+# thermocouple bus is (1, 0)
+# airflow bus is (0, 0)
+spi_air.open(0,0)
+spi_therm.open(1,0)
 
 # 32 Mhz MAX
-spi.max_speed_hz = 250000 # set speed to 250 Khz
+spi_air.max_speed_hz = 250000 # set speed to 250 Khz
+spi_therm.max_speed_hz = 250000 
 
 # Sets Pin Numbering Declaration (Uses BCM numbering scheme)
 GPIO.setmode(GPIO.BCM)
 
-# GPIO 11 -> Pin 23 for clock
-GPIO.setup(23, GPIO.OUT)
-
-# GPIO 9 -> Pin 21 for pressure sensor
-GPIO.setup(21, GPIO.IN)
-GPIO.setup(24, GPIO.IN)
-
-# GPIO 19, 20, 21 -> Pin 35, 38, 40 thermocouple
-GPIO.setup(35, GPIO.IN) # MiPo
-GPIO.setup(38, GPIO.OUT) # MoPi
-GPIO.setup(40, GPIO.OUT)
-GPIO.setup(12, GPIO.OUT)
-GPIO.setup(26, GPIO.OUT)
-
-# GPIO 23, 24, 25 -> 16, 18, 22 Multiplexer to send out signal 
-GPIO.setup(16, GPIO.OUT)
-GPIO.setup(18, GPIO.OUT)
-GPIO.setup(22, GPIO.OUT)
+# GPIO 23, 24, 25, 26 -> A0, A1, A2, A3 Multiplexer to send out signal 
+GPIO.setup(Pin['A0'].value, GPIO.OUT)
+GPIO.setup(Pin['A1'].value, GPIO.OUT)
+GPIO.setup(Pin['A2'].value, GPIO.OUT)
+GPIO.setup(Pin['A3'].value, GPIO.OUT)
 
 # Pressure Sensor Reading
 # 23, 24, 25 send out signal to multiplexer in select mode
-# Clock value to 1
-GPIO.output(23, 1)
 
-GPIO.output(16, 0)
-GPIO.output(18, 0)
-GPIO.output(22, 0)
+GPIO.output(Pin['A0'].value, 1)
+GPIO.output(Pin['A1'].value, 0)
+GPIO.output(Pin['A2'].value, 0)
 
 # Thermocouple Sensor 
 # Multiplexer to read from thermocouple
-GPIO.output(26, 0)
-GPIO.output(35, 1)
+GPIO.output(Pin['A3'].value, 0)
 
 ##### Read data #####
-pressurePin = 21
-thermoPin = 35
 data = []
 usb_present = False
+
+
 
 try:
     while True:     # endless loop, press ctrl+c to exit
@@ -83,14 +100,20 @@ try:
         if device:
             if device.action == 'add':
                 usb_present = True
+                setup = False
                 while(usb_present):
-                    # reading 8 bits (1 byte) from pressure sensor
-                    pressureRead = spi.xfer2([0x80 | pressurePin, 0x00])
-                    pressure = ((pressureRead[0] & 0x07) << 8) | pressureRead[1]
+                    if(setup == False):
+                        thermosetup(spi_therm)
+
+                    # reading 2 bytes from pressure sensor
+                    pressureRead = spi_air.readbytes(2)
+                    pressure = pressureconversion(pressureRead)
 
                     # binary to decimal 150 psi = 1 megapascal 
                     # in binary, a percentage of the max value, which is 150 psi
-                    thermoRead = spi.xfer2([0x80 | thermoPin, 0x00])
+                    
+
+                    thermoRead = spi_therm.xfer([0x0E, 0x0D, 0x0C]) # Address of each thermoregister
                     thermo = ((thermoRead[0] & 0x07) << 8) | thermoRead[1]
 
                     # to .csv
@@ -104,4 +127,6 @@ try:
             elif device.action == 'remove' and usb_present:
                 usb_present = False
 finally:
-    spi.close()     # close port before exit
+    spi_air.close()     # close port before exit
+    spi_therm.close()
+

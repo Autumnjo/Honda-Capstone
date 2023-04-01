@@ -42,8 +42,9 @@ def thermoconstruct(raw):
     full = intpart(float) + fracpart
     return full
 
-def findUSBDir():
-    paths = os.listdir("/media/pi")
+def findUSBs():
+    return os.listdir("/media/autumnjo")
+
 
 ##### config.yaml file #####
 # Read from config.yaml
@@ -88,7 +89,7 @@ GPIO.setup(Pin['A3'].value, GPIO.OUT)
 # Pressure Sensor Reading
 # 23, 24, 25 send out signal to multiplexer in select mode
 
-GPIO.output(Pin['A0'].value, 1)
+GPIO.output(Pin['A0'].value, 0)
 GPIO.output(Pin['A1'].value, 0)
 GPIO.output(Pin['A2'].value, 0)
 
@@ -105,9 +106,12 @@ usb_present = False
 try:
     while True:     # endless loop, press ctrl+c to exit
         # Read from sensors
-        device = monitor.poll()
-        if device:
-            if device.action == 'add':
+        # device = monitor.poll()
+        
+        usbs = findUSBs()
+        print(usbs)
+        if len(usbs) > 0:
+#            if device.action == 'add':
                 usb_present = True
                 setup = False
                 while(usb_present):
@@ -135,8 +139,8 @@ try:
                     # sleep for poll rate time
                     time.sleep(config['software']['poll_rate'])
                     usb_present = False
-            elif device.action == 'remove' and usb_present:
-                usb_present = False
+#           elif device.action == 'remove' and usb_present:
+                # usb_present = False
 finally:
     spi_air.close()     # close port before exit
     spi_therm.close()

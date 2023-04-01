@@ -20,10 +20,17 @@ class Pin(Enum):
 
 def thermosetup(spi_therm):
     reg_0 = [0x00, 0x80] # register code - 0x00, config code - 0b10000000
-    reg_1 = [0x01, 0b00100010] # register code - 0x01, config code - 0b00100010
+    reg_1 = [0x01, 0x22] # register code - 0x01, config code - 0b00100010
     
     spi_therm.writebytes(reg_0)
     spi_therm.writebytes(reg_1)
+
+    time.sleep(.5)
+
+    print(spi_therm.xfer2([0x80]))
+    print(spi_therm.xfer2([0x81]))
+
+    time.sleep(5)
 
     return
 
@@ -100,7 +107,7 @@ GPIO.output(Pin['A3'].value, 0)
 ##### Read data #####
 data = []
 usb_present = False
-
+setup = False
 
 
 try:
@@ -113,7 +120,6 @@ try:
         if len(usbs) > 0:
 #            if device.action == 'add':
                 usb_present = True
-                setup = False
                 while(usb_present):
                     if(setup == False):
                         thermosetup(spi_therm)
@@ -127,9 +133,11 @@ try:
                     # in binary, a percentage of the max value, which is 150 psi
                     
 
-                    thermoRead = spi_therm.xfer([0x0E, 0x0D, 0x0C]) # Address of each thermoregister
+                    thermoRead = spi_therm.xfer2([0x0E, 0x0D, 0x0C]) # Address of each thermoregister
                     print(thermoRead)
                     thermo = thermoconstruct(thermoRead)
+
+
                     #print(thermo) # hhhhhh
 
                     # to .csv

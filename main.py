@@ -106,7 +106,7 @@ usb_present = False
 try:
     while True:     # endless loop, press ctrl+c to exit
         # Read from sensors
-        device = monitor.poll()
+        # device = monitor.poll()
         usbs = findUSBs()
         print(usbs)
         if len(usbs) > 0:
@@ -139,7 +139,7 @@ try:
                     time.sleep(config['software']['poll_rate'])
                     usb_present = False
 #           elif device.action == 'remove' and usb_present:
-                usb_present = False
+                # usb_present = False
 finally:
     spi_air.close()     # close port before exit
     spi_therm.close()

@@ -107,6 +107,7 @@ try:
     while True:     # endless loop, press ctrl+c to exit
         # Read from sensors
         # device = monitor.poll()
+        
         usbs = findUSBs()
         print(usbs)
         if len(usbs) > 0:

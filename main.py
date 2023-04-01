@@ -37,10 +37,10 @@ def pressureconversion(raw):
 
 def thermoconstruct(raw):
     intpart = (raw[0] << 4) + (raw[1] >> 4) & 15   
-    fracpart = (((raw[1] << 4) & 240) + (raw[2] >> 4) & 30)
-    fracpart = (float)(fracpart)/(float)(2^7)
-    full = (float)(intpart) + (float)(fracpart)
-    return full
+#    fracpart = (((raw[1] << 4) & 240) + (raw[2] >> 4) & 30)
+#    fracpart = (float)(fracpart)/(float)(2^7)
+#    full = (float)(intpart) + (float)(fracpart)
+    return intpart
 
 def findUSBs():
     return os.listdir("/media/autumnjo")

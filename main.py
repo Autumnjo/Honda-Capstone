@@ -38,8 +38,8 @@ def pressureconversion(raw):
 def thermoconstruct(raw):
     intpart = (raw[0] << 4) + (raw[1] >> 4) & 15   
     fracpart = (((raw[1] << 4) & 240) + (raw[2] >> 4) & 30)
-    fracpart = (fracpart)(float)/(2^7)
-    full = intpart(float) + fracpart
+    fracpart = (float)(fracpart)/(2^7)
+    full = (float)(intpart) + fracpart
     return full
 
 def findUSBs():

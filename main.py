@@ -127,7 +127,7 @@ try:
                     # in binary, a percentage of the max value, which is 150 psi
                     
 
-                    thermoRead = spi_therm.xfer([0x0E, 0x0D, 0x0C]) # Address of each thermoregister
+                    thermoRead = spi_therm.xfer2([0x0E, 0x0D, 0x0C]) # Address of each thermoregister
                     print(thermoRead)
                     thermo = thermoconstruct(thermoRead)
                     #print(thermo) # hhhhhh

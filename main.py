@@ -132,13 +132,13 @@ try:
                     print(thermo) # hhhhhh
 
                     # to .csv
-                    data.append(pressure, thermo)
-                    df = pd.DataFrame(data, columns=['Pressure_Data', 'Thermo_Data'])
-                    df.to_csv('data.csv', index=False)
+#                    data.append(pressure, thermo)
+#                    df = pd.DataFrame(data, columns=['Pressure_Data', 'Thermo_Data'])
+#                    df.to_csv('data.csv', index=False)
 
                     # sleep for poll rate time
-                    time.sleep(config['software']['poll_rate'])
-                    usb_present = False
+#                    time.sleep(config['software']['poll_rate'])
+#                    usb_present = False
 #           elif device.action == 'remove' and usb_present:
                 # usb_present = False
 finally:

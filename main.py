@@ -74,8 +74,8 @@ spi_air.open(0,0)
 spi_therm.open(1,0)
 
 # 32 Mhz MAX
-spi_air.max_speed_hz = 250000 # set speed to 250 Khz
-spi_therm.max_speed_hz = 250000 
+spi_air.max_speed_hz = 150000 # set speed to 150 Khz
+spi_therm.max_speed_hz = 150000 
 
 # Sets Pin Numbering Declaration (Uses BCM numbering scheme)
 GPIO.setmode(GPIO.BCM)
@@ -127,7 +127,7 @@ try:
                     # in binary, a percentage of the max value, which is 150 psi
                     
 
-                    thermoRead = spi_therm.xfer2([0x0E, 0x0D, 0x0C]) # Address of each thermoregister
+                    thermoRead = spi_therm.xfer([0x0E, 0x0D, 0x0C]) # Address of each thermoregister
                     print(thermoRead)
                     thermo = thermoconstruct(thermoRead)
                     #print(thermo) # hhhhhh
@@ -140,7 +140,7 @@ try:
                     # sleep for poll rate time
 #                    time.sleep(config['software']['poll_rate'])
 #                    usb_present = False
-                    time.sleep(.01)
+                    time.sleep(.1)
 #           elif device.action == 'remove' and usb_present:
                 # usb_present = False
 finally:

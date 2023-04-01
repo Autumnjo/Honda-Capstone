@@ -128,8 +128,9 @@ try:
                     
 
                     thermoRead = spi_therm.xfer([0x0E, 0x0D, 0x0C]) # Address of each thermoregister
+                    print(thermoRead)
                     thermo = thermoconstruct(thermoRead)
-                    print(thermo) # hhhhhh
+                    #print(thermo) # hhhhhh
 
                     # to .csv
 #                    data.append(pressure, thermo)

@@ -140,7 +140,7 @@ try:
                     # sleep for poll rate time
 #                    time.sleep(config['software']['poll_rate'])
 #                    usb_present = False
-                time.sleep(.01)
+                    time.sleep(.01)
 #           elif device.action == 'remove' and usb_present:
                 # usb_present = False
 finally:

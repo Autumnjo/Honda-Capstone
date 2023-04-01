@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import pandas as pd
 import spidev
 import RPi.GPIO as GPIO
@@ -34,7 +35,15 @@ def pressureconversion(raw):
     max_hex = 0x3FFF
     return 2 * (100 * float(raw)/float(max_hex))
 
-def thermoconstruct(raw)
+def thermoconstruct(raw):
+    intpart = (raw[0] << 4) + (raw[1] >> 4) & 15   
+    fracpart = (((raw[1] << 4) & 240) + (raw[2] >> 4) & 30)
+    fracpart = (fracpart)(float)/(2^7)
+    full = intpart(float) + fracpart
+    return full
+
+def findUSBDir():
+    paths = os.listdir("/media/pi")
 
 ##### config.yaml file #####
 # Read from config.yaml
@@ -104,6 +113,7 @@ try:
                 while(usb_present):
                     if(setup == False):
                         thermosetup(spi_therm)
+                        setup = True
 
                     # reading 2 bytes from pressure sensor
                     pressureRead = spi_air.readbytes(2)
@@ -114,7 +124,8 @@ try:
                     
 
                     thermoRead = spi_therm.xfer([0x0E, 0x0D, 0x0C]) # Address of each thermoregister
-                    thermo = ((thermoRead[0] & 0x07) << 8) | thermoRead[1]
+                    thermo = thermoconstruct(thermoRead)
+                    print(thermo) # hhhhhh
 
                     # to .csv
                     data.append(pressure, thermo)

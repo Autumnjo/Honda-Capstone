@@ -7,56 +7,50 @@ import time
 import pathlib
 import yaml
 import pyudev
+import board
+import digitalio
+import adafruit_max31856 as thermoamp
+from adafruit_bus_device.spi_device import SPIDevice
+import busio
 
 from enum import Enum
 
 # Function Definitions
 
-class Pin(Enum):
-    A0 = 23
-    A1 = 24
-    A2 = 25
-    A3 = 26
+_MAX_PRESSURE_VAL = 0x3FFF 
+_P_MAX = 2 # 2 inH2O
+_P_MIN = -2
+def convert_pressure(raw):
+    # Pressure is on a range from 0 to 100% of -2inH2O to 2inH2O
+    pressure = raw[0] << 8 | raw[1] # shifts the MSB left 8 and adds the LSB portion
+    pressure_percent = 100 * float(pressure)/float(_MAX_PRESSURE_VAL)
+    # Apply transfer function
+    # Output (%) = 80%/(Pmax - Pmin) * (Pressure_Applied - Pmin) + 10%
+    # Rearrange: (Output - 10%)/(Pressure_Applied - Pmin) = 80%/(Pmax - Pmin)
+    # Reciprocal: (Pressure_Applied - Pmin)/(Output - 10%) = (Pmax-Pmin)/80%
+    # Pressure_Applied = (Pmax - Pmin)(Output - 10%)/80% + Pmin
 
-def thermosetup(spi_therm):
-    reg_0 = [0x00, 0x80] # register code - 0x00, config code - 0b10000000
-    reg_1 = [0x01, 0x22] # register code - 0x01, config code - 0b00100010
-    
-    spi_therm.writebytes(reg_0)
-    spi_therm.writebytes(reg_1)
 
-    time.sleep(.5)
+    return (_P_MAX - _P_MIN) * (pressure_percent - 10)/80 + _P_MIN
 
-    print(spi_therm.xfer2([0x80]))
-    print(spi_therm.xfer2([0x81]))
 
-    time.sleep(5)
-
-    return
-
-def pressureconversion(raw):
-    raw = (raw[0] * 16 * 16)+ raw[1]
-    if raw == 0:
-        return 0
-    
-    max_hex = 0x3FFF
-    return 2 * (100 * float(raw)/float(max_hex))
-
-def thermoconstruct(raw):
-    intpart = (raw[0] << 4) + (raw[1] >> 4) & 15   
-#    fracpart = (((raw[1] << 4) & 240) + (raw[2] >> 4) & 30)
-#    fracpart = (float)(fracpart)/(float)(2^7)
-#    full = (float)(intpart) + (float)(fracpart)
-    return intpart
-
+_MEDIA_DIRECTORY = "/media/autumnjo"
 def findUSBs():
-    return os.listdir("/media/autumnjo")
+    return os.listdir(_MEDIA_DIRECTORY)
+
+def getUSBDriveDir():
+    drives = findUSBs()
+    if(len(drives) > 0):
+        return _MEDIA_DIRECTORY + "/" + drives[0] # Returns the first USB drive it finds.
 
 
 ##### config.yaml file #####
 # Read from config.yaml
 with open('config.yml', 'r') as file:
     config = yaml.safe_load(file)
+
+# Set number of sensors to read
+sensors_connected = config['hardware']['sections']
 
 ##### USB reading #####
 # Context object via pyudev for USB reading
@@ -70,88 +64,90 @@ monitor.filter_by(subsystem='usb')
 monitor.start()
 
 ##### Initialize board/pins #####
-# SpiDev Init
-spi_air = spidev.SpiDev()
-spi_therm = spidev.SpiDev()
 
-# (bus,device) used to connect to SPI device
-# thermocouple bus is (1, 0)
-# airflow bus is (0, 0)
-spi_air.open(0,0)
-spi_therm.open(1,0)
+spi_temp = busio.SPI(board.SCK, MOSI=board.MOSI, MISO=board.MISO)
+spi_air = busio.SPI(board.SCK_1, MOSI=board.MOSI_1, MISO=board.MISO_1)
 
-# 32 Mhz MAX
-spi_air.max_speed_hz = 150000 # set speed to 150 Khz
-spi_therm.max_speed_hz = 150000 
 
-# Sets Pin Numbering Declaration (Uses BCM numbering scheme)
-GPIO.setmode(GPIO.BCM)
+# PINS
 
-# GPIO 23, 24, 25, 26 -> A0, A1, A2, A3 Multiplexer to send out signal 
-GPIO.setup(Pin['A0'].value, GPIO.OUT)
-GPIO.setup(Pin['A1'].value, GPIO.OUT)
-GPIO.setup(Pin['A2'].value, GPIO.OUT)
-GPIO.setup(Pin['A3'].value, GPIO.OUT)
+class Pins(Enum):
+    A0 = digitalio.DigitalInOut(board.D5)
+    A1 = digitalio.DigitalInOut(board.D6)
+    A2 = digitalio.DigitalInOut(board.D26)
+    A3 = digitalio.DigitalInOut(board.D25)
+    E_not = digitalio.DigitalInOut(board.D16) # Initializing these to zero enables the decoders
+    G_not = digitalio.DigitalInOut(board.D13) # Initializing these to zero enables the decoders
 
-# Pressure Sensor Reading
-# 23, 24, 25 send out signal to multiplexer in select mode
+for pin in Pins:
+    pin.direction = digitalio.Direction.OUTPUT
+    pin.value = 0
 
-GPIO.output(Pin['A0'].value, 0)
-GPIO.output(Pin['A1'].value, 0)
-GPIO.output(Pin['A2'].value, 0)
 
-# Thermocouple Sensor 
-# Multiplexer to read from thermocouple
-GPIO.output(Pin['A3'].value, 0)
+temp = thermoamp.MAX31856(spi_temp, Pins.E_not, thermocouple_type=thermoamp.ThermocoupleType.J) # Can utilize this directly for temp readings
+airflow = SPIDevice(spi_air, Pins.G_not) # A bit more complicated. We'll see how it pans out.
+
+def decodeAndSetPins(address):
+    if(1 & address): # '0001' & <...1> from address
+        Pins.A0.value = 1
+    else:
+        Pins.A0.value = 0
+
+    if(2 & address): # '0010' major check
+        Pins.A1.value = 1
+    else:
+        Pins.A1.value = 0
+    
+    if(4 & address): 
+        Pins.A2.value = 1
+    else:
+        Pins.A2.value = 0
+
+    if(8 & address): 
+        Pins.A3.value = 1
+    else:
+        Pins.A3.value = 0
+
+    return
+
 
 ##### Read data #####
 data = []
 usb_present = False
-setup = False
+airflow_bytes = bytearray(2) # 2 bytes for the airflow reading. 
+
+_DEFAULT_POLL_RATE = .1 # Can assign from CSV
 
 
-try:
-    while True:     # endless loop, press ctrl+c to exit
-        # Read from sensors
-        # device = monitor.poll()
+while True:     # endless loop, press ctrl+c to exit
+    # Read from sensors
+    # device = monitor.poll()
         
-        usbs = findUSBs()
-        print(usbs)
-        if len(usbs) > 0:
-#            if device.action == 'add':
-                usb_present = True
-                while(usb_present):
-                    if(setup == False):
-                        thermosetup(spi_therm)
-                        setup = True
+    usbs = findUSBs()
+    if len(usbs) > 0:
+#         if device.action == 'add':
+            usb_present = True
+            while(len(findUSBs > 0)):
+                for i in range(sensors_connected):
+                    decodeAndSetPins(i)
+                    temperature = temp.temperature
+                    pressure = 0
+                    with airflow as spi:
+                        if(spi.try_lock()): 
+                            spi.readinto(airflow_bytes)
+                            pressure = convert_pressure(airflow_bytes)
+                            spi.unlock()
 
-                    # reading 2 bytes from pressure sensor
-                    pressureRead = spi_air.readbytes(2)
-                    pressure = pressureconversion(pressureRead)
-
-                    # binary to decimal 150 psi = 1 megapascal 
-                    # in binary, a percentage of the max value, which is 150 psi
-                    
-
-                    thermoRead = spi_therm.xfer2([0x0E, 0x0D, 0x0C]) # Address of each thermoregister
-                    print(thermoRead)
-                    thermo = thermoconstruct(thermoRead)
-
-
-                    #print(thermo) # hhhhhh
 
                     # to .csv
-#                    data.append(pressure, thermo)
-#                    df = pd.DataFrame(data, columns=['Pressure_Data', 'Thermo_Data'])
-#                    df.to_csv('data.csv', index=False)
+                    data.append((pressure, temperature, i))
+                    df = pd.DataFrame(data, columns=['Pressure_Data', 'Thermo_Data', 'Sensor Number'])
+                    df.to_csv('data.csv', index=False)
 
                     # sleep for poll rate time
-#                    time.sleep(config['software']['poll_rate'])
-#                    usb_present = False
-                    time.sleep(.1)
-#           elif device.action == 'remove' and usb_present:
-                # usb_present = False
-finally:
-    spi_air.close()     # close port before exit
-    spi_therm.close()
+                    time.sleep(config['software']['poll_rate'])
+                    
+#finally:
+#    spi_air.close() 
+#    spi_therm.close()
 

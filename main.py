@@ -87,7 +87,7 @@ for pin in Pins:
 temp = thermoamp.MAX31856(spi_temp, Pins.E_not, thermocouple_type=thermoamp.ThermocoupleType.J) # Can utilize this directly for temp readings
 airflow = SPIDevice(spi_air, Pins.G_not) # A bit more complicated. We'll see how it pans out.
 
-def decodeAndSetPins(address):
+def decodeAndSetPins(address): # Python performs comparison in integers much faster than binary.
     if(1 & address): # '0001' & <...1> from address
         Pins.A0.value = 1
     else:
@@ -137,7 +137,6 @@ while True:     # endless loop, press ctrl+c to exit
                             spi.readinto(airflow_bytes)
                             pressure = convert_pressure(airflow_bytes)
                             spi.unlock()
-
 
                     # to .csv
                     data.append((pressure, temperature, i))

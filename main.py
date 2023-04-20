@@ -65,8 +65,8 @@ monitor.start()
 
 ##### Initialize board/pins #####
 
-spi_temp = busio.SPI(board.SCK, MOSI=board.MOSI, MISO=board.MISO)
-spi_air = busio.SPI(board.SCK_1, MOSI=board.MOSI_1, MISO=board.MISO_1)
+spi_temp = busio.SPI(clock=board.SCK, MOSI=board.MOSI, MISO=board.MISO)
+spi_air = busio.SPI(clock=board.SCK_1, MOSI=board.MOSI_1, MISO=board.MISO_1)
 
 
 # PINS
